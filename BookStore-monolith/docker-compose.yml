@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  flaskapp:
+    build: .
+    restart: always
+    environment:
+      - FLASK_ENV=development
+      - MYSQL_DATABASE=bookstore
+      - MYSQL_USER=admin
+      - MYSQL_PASSWORD=bookstore
+      - MYSQL_ROOT_PASSWORD=root_pass
+    ports:
+      - "5000:5000"
+    networks:
+      - bookstore_net
+
+volumes:
+  db_data:
+
+networks:
+  bookstore_net:
