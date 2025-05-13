@@ -2,8 +2,7 @@ version: '3.8'
 
 services:
   flaskapp:
-    image: localhost:3000/bookstore-monolith
-    build: .
+    image: dexterx11/bookstore:latest
     environment:
       - FLASK_ENV=development
       - MYSQL_DATABASE=bookstore
@@ -12,14 +11,32 @@ services:
       - MYSQL_ROOT_PASSWORD=root_pass
       - MYSQL_ADDRESS=bookstore-db.ckquapo1urgv.us-east-1.rds.amazonaws.com
     ports:
-      - "5000:5000"
+      - "5000"
     networks:
       - bookstore_net
     deploy:
-      replicas: 4
+      replicas: 8
       restart_policy:
         condition: any
+  nginx: 
+      image: nginx:latest
+      volumes:
+        - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      depends_on:
+        - flaskapp
+      deploy:
+        replicas: 3
+        restart_policy:
+          condition: any
+      ports:
+        - target: 80
+          published: 80
+          protocol: tcp
+          mode: ingress
+      networks:
+        - bookstore_net
 
 networks:
   bookstore_net:
     driver: overlay
+    attachable: true
