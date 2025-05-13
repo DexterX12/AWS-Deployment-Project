@@ -19,8 +19,7 @@ services:
       restart_policy:
         condition: any
   nginx: 
-      build:
-        context: ./nginx
+      image: dexter11/bookstore-nginx:latest
       deploy:
         replicas: 3
         placement:
