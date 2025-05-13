@@ -2,21 +2,24 @@ version: '3.8'
 
 services:
   flaskapp:
+    image: localhost:3000/bookstore-monolith
     build: .
-    restart: always
     environment:
       - FLASK_ENV=development
       - MYSQL_DATABASE=bookstore
       - MYSQL_USER=admin
       - MYSQL_PASSWORD=bookstore
       - MYSQL_ROOT_PASSWORD=root_pass
+      - MYSQL_ADDRESS=bookstore-db.ckquapo1urgv.us-east-1.rds.amazonaws.com
     ports:
       - "5000:5000"
     networks:
       - bookstore_net
-
-volumes:
-  db_data:
+    deploy:
+      replicas: 4
+      restart_policy:
+        condition: any
 
 networks:
   bookstore_net:
+    driver: overlay

@@ -7,9 +7,10 @@ app = Flask(__name__)
 username = environ["MYSQL_USER"]
 password = environ["MYSQL_PASSWORD"]
 schema = environ["MYSQL_DATABASE"]
+db_name = environ["MYSQL_ADDRESS"]
 
 app.config['SECRET_KEY'] = 'secretkey'
-app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{username}:{password}@bookstore-db.ckquapo1urgv.us-east-1.rds.amazonaws.com/{schema}'
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{username}:{password}@{db_name}/{schema}'
 
 db.init_app(app)
 login_manager.init_app(app)
