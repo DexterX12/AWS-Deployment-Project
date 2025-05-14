@@ -1,3 +1,100 @@
+## Materia: ST0263-251
+Integrantes del proyecto:
+
+* Delvin Rodríguez Jiménez - djrodriguj@eafit.edu.co
+* Wendy Benítez Gómez - wdbenitezg@eafit.edu.co
+* Fredy Cadavid Franco - fcadavidf@eafit.edu.co
+
+Profesor
+
+Edwin Nelson Montoya Múnera - emontoya@eafit.edu.co
+
+
+# Despliegue en AWS
+
+# 1. Breve descripción de la actividad
+
+## 1.1 **Aspectos desarrollados**
+Durante el desarrollo del proyecto se cumplió con éxito la implementación de los Objetivos 1 y 2, enfocados en el despliegue en producción, escalabilidad, seguridad y disponibilidad del sistema BookStore en la nube. A continuación, se detallaremos los logros alcanzados:
+#### Despliegue en Producción en AWS
+> - La aplicación monolítica BookStore fue desplegada exitosamente en una máquina virtual en AWS.
+> - Se configuró un subdominio para la aplicación: [https://bookstore-alp.freeddns.org/](https://bookstore-alp.freeddns.org/ "https://bookstore-alp.freeddns.org/") 
+> - Se implementó un certificado SSL usando ZeroSSL.
+> - Se utilizó NGINX como proxy inverso, permitiendo separar el tráfico seguro y servir contenido estático.
+> - Se empleó docker-compose para levantar la aplicación y base de datos en contenedores separados (Flask + MySQL)
+
+#### Escalamiento en Nube
+Se implementaron dos enfoques distintos de escalamiento horizontal:
+Opción 1: Escalamiento con Máquinas Virtuales (Auto Scaling Group)
+> - Se configuró un Auto Scaling Group (ASG) con un mínimo de 2 y un máximo de 3 instancias EC2.
+> - Se integró un Load Balancer que distribuye el tráfico entre las instancias activas.
+> - Se estableció una política de escalado dinámico basada en carga (tráfico).
+> - La base de datos fue separada usando Amazon RDS, proporcionando persistencia y disponibilidad.
+> - Se usó Amazon EFS como sistema de archivos compartido para servir archivos estáticos en todas las instancias.
+
+Opción 2: Escalamiento con Contenedores (Docker Swarm)
+> - Se realizó una versión del despliegue usando Docker Swarm con 5 réplicas de la app.
+> - Se configuró un Load Balancer dedicado al clúster de contenedores, aislado del ASG.
+> - El tráfico fue gestionado de forma segura (HTTPS) y balanceado entre los contenedores disponibles.
+> 
+## 1.2 **Aspectos no desarrollados**
+No se cumplió con el Objetivo 3 (inicialmente) propuesto por el docente, el cual consistía en:
+
+> Objetivo 3 (50%): Realizar una reingeniería de la app BookStore Monolítica, para dividirla en tres microservicios independientes:
+> Microservicio 1: Autenticación (registro, login, logout)
+> Microservicio 2: Catálogo (visualización de la oferta de libros)
+> Microservicio 3: Compra, Pago y Entrega de libros
+
+En lugar de migrar hacia microservicios, se optó por realizar un despliegue en contenedores usando Docker Swarm, con los siguientes beneficios:
+
+> - Escalamiento horizontal del servicio completo por réplicas
+> - Balanceo de carga entre contenedores
+> - Persistencia de datos mediante Amazon RDS y EFS
+> - Separación del tráfico HTTP/HTTPS con un NGINX como reverse proxy
+
+Esto permitió simular un entorno distribuido en producción, aunque la lógica de negocio permanece centralizada en un solo contenedor por réplica (es decir, sigue siendo una app monolítica escalada, no una arquitectura basada en microservicios).
+
+# 2. Diseño y Arquitectura
+El diseño de las aplicaciones y su arquitectura se realizaron en 3 tipos de despliegue distintos:
+## **1. Arquitectura Monolítica Simple**
+![Monolith](https://i.imgur.com/WDgJKx3.png)
+Esta arquitectura presenta el diseño más simple de implementación, puesto que todo se ejecuta en la misma máquina. Sin embargo, no es apta para entornos de alta demanda o de demanda variable, debido a los riesgos de saturación de la máquina y la disponibilidad de la misma. Algunas características de esta arquitectura:
+
+-   **Web**: Cliente accede directamente a la aplicación.
+-   **Bookstore**: Aplicación Flask y base de datos MySQL corriendo en una misma unidad (posiblemente un solo contenedor o servidor) con NGINX como proxy inverso.
+-   **Limitaciones**: No hay alta disponibilidad (HA), ni balanceo de carga. Un único punto de falla.
+
+## **2. Arquitectura Escalable en EC2 con Auto Scaling**
+![ASG](https://i.imgur.com/4mDc9Kh.png)
+Esta arquitectura introduce el escalamiento horizontal de la aplicación monolítica, instanciando más máquinas de forma dinámica según la carga del servicio. Aquí se implementan balanceadores de carga junto a bases de datos administradas para alta disponibilidad y redundancia en varias zonas de disponibilidad (cuando aplique). Características a tener en cuenta:
+-   **ASG (Auto Scaling Group)**: Se despliegan múltiples instancias de EC2 que contienen:
+    -   Nginx como reverse proxy.
+    -   Contenedor de la app Flask (`Bookstore`).
+-   **AWS RDS**: La base de datos está gestionada externamente por Amazon.
+-   **Load Balancer**: Balancea tráfico entre las instancias.
+-   **Aspectos**:
+    -   Escalabilidad automática
+    -   Separación de la base de datos.
+    -   Redundancia entre instancias.
+    
+
+----------
+
+## **3. Arquitectura con Docker Swarm**
+![Swarm](https://i.imgur.com/F0Ls3Jk.png)
+
+Arquitectura similar a la anterior, pero se usa Docker Swarm para la orquestación de los nodos en un clúster, con conceptos como replicación, redundancia y alta disponibilidad, además de algoritmos de elección de lider entre nodos, añadiendo el aspecto de tolerancia a fallos.
+ 
+-   **Swarm Cluster**: Compuesto por 3 nodos **Managers** y 2 **Workers**.
+-   **Cada nodo ejecuta Nginx + App Flask** (contenedorizados).
+-   **Load Balancer externo**: Distribuye las peticiones entrantes entre los nodos del Swarm.
+-   **AWS RDS**: Base de datos desacoplada del clúster.
+-   **Aspectos**:
+    -   Alta disponibilidad (3 managers).
+    -   Swarm gestiona la orquestación y failover.
+    -   Auto-reemplazo de servicios caídos.
+
+
 # 3. Descripción del ambiente de desarrollo y técnico
 #### Lenguajes y herramientas
 Para este proyecto, se utilizó lo siguiente:
@@ -9,12 +106,12 @@ Para este proyecto, se utilizó lo siguiente:
  - pymysql@**latest**
  - werkzeug@**latest**
  - nginx
-#### Versión monolítica con base de datos
+### Versión monolítica con base de datos
 Para la versión monolítica donde la base de datos reside en la misma máquina, se utilizó el proyecto con el docker compose de [*este repositorio*](https://github.com/st0263eafit/st0263-251/tree/main/proyecto2). Para ejecutar esta versión, basta con instalar `docker` y `docker-compose`. Luego, dentro del directorio raíz del proyecto, ejecutar el siguiente comando:
 
     docker compose up -d
 Esto ejecutará el servidor de `flask` en un contenedor, seguido del servidor MySQL en otro.
-#### Versión monolítica con base de datos remota
+### Versión monolítica en varias VM con base de datos remota
 Para esta versión se modifica el archivo `docker-compose` para solo alojar la aplicación flask en un contenedor de la siguiente forma:
 ```docker-compose
 version: '3.8'
@@ -53,7 +150,7 @@ server {
 	}
 }
 ```
-#### Versión monolítica con Docker Swarm
+### Versión monolítica con Docker Swarm
 Docker Swarm permite la orquestación de contenedores, permitiendo escalar y replicar los contenedores de las aplicaciones, puntos cruciales para la tolerancia a fallos y alta disponibilidad.
 Esta versión modifica el archivo `docker-compose.yml` para agregar una propiedad de `deploy` a cada servicio. Este define como se debe comportar cada contenedor en cuanto a cantidad de réplicas, y cuantas de estas por instancia, entre otros aspectos.
 Para el proyecto, se definió 8 réplicas de la aplicación en `flask` y 3 replicas de `nginx` con la condición de repartirse 1 máximo en cada instancia. 
@@ -187,5 +284,21 @@ En esta arquitectura se utiliza un **Load Balancer independiente y exclusivo par
 > - Se encarga de recibir el tráfico entrante HTTPS.
 > - Redirige las peticiones hacia los contenedores activos del clúster
 > - Está configurado con reglas de redirección HTTP → HTTPS y usa el mismo certificado SSL emitido por **ZeroSSL**.
-   
+
+## 4. Ejecución
+Para ejecutar el servidor, basta con clonar el repositorio y utilizar el archivo `docker-compose.yml` para ejecutar el entorno requerido, cuyos pasos se encuentran en la sección 3.
+
+## 5. Nombres de dominio
+Los 3 despliegues se encuentran en el siguiente subdominio: `bookstore-alp.freeddns.org`, con la separación de cada uno de ellos dado de la siguiente manera:
+* [monolith.bookstore-alp.freeddns.org](https://monolith.bookstore-alp.freeddns.org): Este enruta hacia la aplicación monolítica que corre únicamente en una sola máquina
+* [bookstore-alp.freeddns.org](https://bookstore-alp.freeddns.org): Este enlace es asignado al DNS del load balancer para el objetivo 2 del Auto Scaling Group
+* [swarm.bookstore-alp.freeddns.org](https://swarm.bookstore-alp.freeddns.org): Este enlace se asignó al DNS del load balancer del clúster de Docker Swarm
+
+
+# Referencias
+* _«Swarm mode»_. (2025, 29 de enero). Docker Documentation. https://docs.docker.com/engine/swarm/
+* Habibullah. (2023, 2 de septiembre). Containerization of Python Flask Nginx in docker - Habibullah - Medium. _Medium_. https://medium.com/@habibullah.127.0.0.1/containerization-of-python-flask-nginx-in-docker-7c451b3328b7
+* Joy. (2024, 21 de abril). _Load balancing with Docker Swarm & Nginx_. DEV Community. https://dev.to/joykingoo/load-balancing-with-docker-swarm-nginx-ef5
+* _Setting up Docker Swarm High Availability in Production | Better Stack Community_. (2023, 22 de diciembre). https://betterstack.com/community/guides/scaling-docker/ha-docker-swarm/#step-7-deploying-a-highly-available-nginx-service
+* William. (2023, 7 marzo). How to Create an Auto Scaling Group of EC2 Instances for High Availability. _Medium_. https://medium.com/@boltonwill/how-to-create-an-auto-scaling-group-of-ec2-instances-for-high-availability-c94e85cc8cf3
    
