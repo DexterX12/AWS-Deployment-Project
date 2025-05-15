@@ -432,6 +432,7 @@ Esto elimina la creación de un contenedor para la bases de datos, puesto que se
 
 Después de realizar los cambios al compose dentro de la instancia. Se crea la imagen:
 ![Image creation](https://i.imgur.com/4XWiiKD.png)
+
 Tardará un poco en crearse la imagen, dependiendo del tamaño del volumen de la instancia base.
 
 Lo siguiente es crear una plantilla de lanzamiento
@@ -449,7 +450,9 @@ El esquema general debería ser similar al siguiente (sin los targets):
 ![Load Balancer](https://i.imgur.com/oig9PMD.png)
 El Listener de puerto 80 redirige las peticiones a HTTPS.
 
-Por último, en el Auto Scaling Group previamente creado, se conecta una integración de tipo Load Balancer y se especifica el target group de la máquina![Target Group](https://i.imgur.com/rHuZyOf.png)
+Por último, en el Auto Scaling Group previamente creado, se conecta una integración de tipo Load Balancer y se especifica el target group de la máquina
+
+![Target Group](https://i.imgur.com/rHuZyOf.png)
 
 Con esto, las máquinas se ejecutarán automáticamente dentro del target group, además de escalar según las reglas de escalamiento establecidas en el ASG.
 
@@ -475,8 +478,66 @@ Dentro de la carpeta del proyecto, se encuentra el docker-compose con las config
 
 Antes de iniciar el swarm, es necesario crear las imágenes para el servicio de `flask` y `nginx`, esto con la finalidad de que cada nodo pueda replicar la imagen de manera independiente. (Esto requiere utilizar una cuenta de Docker, donde se utilizará Docker Hub para subir las imágenes. [Aquí lo explican](https://www.howtogeek.com/devops/how-to-login-to-docker-hub-and-private-registries-with-the-docker-cli/)).
 
+Para construir las imágenes, léase la sección 3 en la parte de despliegue local, puesto que el proceso es el mismo. 
+Finalmente, se debe subir la imagen al repositorio de imágenes del usuario con el que se inicia sesión previamente con `docker login`. Para subirlo, se ejecuta lo siguiente:
 
+    docker push usuario/imagen:latest
 
+Ahora es necesario modificar el docker-compose y colocar el repositorio en cada una de las imágenes:
+* Para flask:
+```docker
+version: '3.8'
+
+services:
+	flaskapp:
+		image: usuario/imagen_flask:latest
+		environment:
+			...
+```
+* Para nginx
+```docker
+version: '3.8'
+
+services:
+	nginx:
+		image: usuario/imagen_nginx:latest
+		environment:
+			...
+```
+
+Después de configurar las imágenes, se puede empezar a crear el docker swarm:
+
+    docker swarm init --advertise-addr IP_DE_LA_MAQUINA
+
+Se especifica la IP privada de la máquina donde está corriendo el comando. Luego de esto, el comando iniciará un swarm y le dará un token para que las demás máquinas puedan entrar. El token tiene una estructura similar a esta:
+
+    docker swarm join --token SWMTKN-1-056fpbfg5m2rll2xdshu6ndohc4sk7cpgkd8necrp2i12z8ybx-e1idftlwlinjfbn65pf23klab 172.31.87.93:2377
+
+Este comando se debe ejecutar en todas las máquinas que se desee unir al swarm.
+
+Por último, después de unir todas las máquinas, se despliega el servicio especificado en el docker-compose. Esto se realiza en la máquina manager (la máquina que inició el docker swarm):
+
+    docker stack deploy --compose-file docker-compose.yml bookstore
+
+Después de cierto tiempo, se puede revisar el estado de los servicios mediante el comando `docker service ls`, donde se ve algo similar a esto:
+
+![Replicas](https://i.imgur.com/0pU6ew4.png)
+Esto indica la cantidad de replicas corriendo, seguido de las imágenes usadas.
+
+Se verifica el estado de las máquinas conectadas de la siguiente forma:
+
+    docker node ls
+
+Con una salida similar a esta:
+
+![Nodes](https://i.imgur.com/Ub8LCmp.png)
+
+Se aprecian los nodos conectados y además la identificación del lider(es).
+
+Ya las máquinas están funcionando, ahora solo falta acceder al servicio.
+
+Se debe crear un target group como en el despliegue 2, donde todas las máquinas que hagan parte del cluster de swarm estén ahí.
+Finalmente, se crea un load balancer que apunte a dicho target group, y el endpoint DNS apuntará a cualquiera de las N máquinas, las cuales redirigirán la petición al nodo que posea el servicio solicitado.
 
 ## 5. Nombres de dominio
 Los 3 despliegues se encuentran en el siguiente subdominio: `bookstore-alp.freeddns.org`, con la separación de cada uno de ellos dado de la siguiente manera:
